@@ -2,6 +2,7 @@ from Organism import Organism
 from Selection import Selection
 from Recombination import Recombination
 
+import threading
 import random
 
 
@@ -47,6 +48,7 @@ class GeneticAlgorithm:
     _multi_point_num_points = 0
     __uniform_crossover_probability = None
     _mutation_probability = 0.001 # Default mutation probability (0.1%)
+    _number_of_threads = 2
     # +++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
@@ -284,10 +286,34 @@ class GeneticAlgorithm:
             raise GeneticAlgorithm.GeneticAlgorithmException("The population has not been initialised. Use the `GeneticAlgorithm.generate_population()` method to generate a population.")
         if len(self._genes) == 0:
             raise GeneticAlgorithm.InvalidGeneValue("No genes have been added to the genetic algorithm. Use the `GeneticAlgorithm.add_gene()` method to add genes.")
+        
 
-        # Evaluate the fitness of the population
-        for organism in self._population:
-            organism.fitness = self.__fitness(organism)
+        # Check whether multithreading is enabled
+        if self._number_of_threads > 1:
+            # Implement multithreading
+            population_per_thread = self._population_size // self._number_of_threads
+
+            def evaluate_part_of_population(start, end):
+                for i, _ in enumerate(self._population[start:end]):
+                    self._population[i].fitness = self.__fitness(self._population[i])
+
+            threads = []
+            for i in range(self._number_of_threads):
+                start = i * population_per_thread
+                end = (i + 1) * population_per_thread
+                if i == self._number_of_threads - 1:
+                    end = self._population_size
+                threads.append(threading.Thread(target=evaluate_part_of_population, args=(start, end)))
+
+            for thread in threads:
+                thread.start()
+                thread.join()
+
+            pass
+        else:
+            # Evaluate the fitness of the population
+            for organism in self._population:
+                organism.fitness = self.__fitness(organism)
 
         # Update the population evaluated flag
         self._population_evaluated = True
@@ -522,6 +548,29 @@ class GeneticAlgorithm:
         - value (`int`): The size of the selection.
         """
         self._selection_size = value
+
+
+    @property
+    def number_of_threads(self):
+        """
+        This property returns the number of threads to be used for evaluating the population.
+
+        ### Returns
+        - int: The number of threads.
+        """
+        return self._number_of_threads
+    
+
+    @number_of_threads.setter
+    def number_of_threads(self, value: int):
+        """
+        This property sets the number of threads to be used for evaluating the population.
+
+        ### Parameters
+        - value (`int`): The number of threads.
+        """
+        self._number_of_threads = value
+
 
     @property
     def mutation_probability(self):

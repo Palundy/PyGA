@@ -3,6 +3,10 @@ from Organism import Organism
 from Selection import Selection
 
 import matplotlib.pyplot as plt
+import time
+
+
+start_time = time.time()
     
 
 
@@ -12,7 +16,7 @@ items = {
     "bowling_ball": {"weight": 10, "value": 100},
     "guitar": {"weight": 1, "value": 150},
     "laptop": {"weight": 3, "value": 200},
-    "tv": {"weight": 15, "value": 300},
+    "tv": {"weight": 15, "value": 100},
     "painting": {"weight": 2, "value": 70},
     "books": {"weight": 1, "value": 30},
     "plants": {"weight": 1, "value": 20},
@@ -64,16 +68,17 @@ for item in items:
 # Configure the genetic algorithm
 GA.recombination_method(GeneticAlgorithm.RECOMBINATION_SINGLE_CROSSOVER)
 GA.selection_method(GeneticAlgorithm.SELECTION_ROULETTE_WHEEL)
-GA.generate_population(100)
-GA.mutation_rate = 0.5
-GA.selection_size = 10
+GA.generate_population(1000)
+GA.mutation_rate = 0.02
+GA.selection_size = 30
 GA.tournament_size = 3
+GA.number_of_threads = 2
 
 mean_fitness = []
 best_fitness = []
 champion_organism_fitness = 0
 champion_organism = None
-for i in range(5000):
+for i in range(1000):
 
     # Evaluate the fitness of the population
     GA.evaluate_population()
@@ -98,9 +103,13 @@ for i in range(5000):
 # Show the stats of the best organism
 print(f"Best Organism: {GA.describe_organism(champion_organism)}")
 
+print(f"Execution time: {time.time() - start_time} seconds")
+
+
 plt.plot(range(len(mean_fitness)), mean_fitness, label="Mean Fitness")
 plt.plot(range(len(best_fitness)), best_fitness, label="Best Fitness")
 plt.xlabel("Generation")
 plt.ylabel("Fitness")
 plt.legend()
 plt.show()
+
