@@ -8,7 +8,7 @@ class Recombination:
     # --------------------------------------------------
     # Methods
     # --------------------------------------------------
-    def recombination_single_crossover(parent1: Organism, parent2: Organism)-> list:
+    def recombination_single_crossover(parent1: Organism, parent2: Organism, mutation_probability: float)-> list:
         """
         This method performs a single-point crossover recombination between two parent organisms.
         In single-point crossover, a random crossover point is selected, and the genes of the parents
@@ -17,6 +17,7 @@ class Recombination:
         ### Parameters
         - parent1 (`Organism`): The first parent organism.
         - parent2 (`Organism`): The second parent organism.
+        - mutation_probability (`float`): The probability of mutating the offspring.
 
         ### Returns
         - `list`: A list of two offspring organisms.
@@ -28,11 +29,11 @@ class Recombination:
         # Perform single-point crossover
         offspring1 = Organism(None, parent1.chromosome[:crossover_point] + parent2.chromosome[crossover_point:])
         offspring2 = Organism(None, parent2.chromosome[:crossover_point] + parent1.chromosome[crossover_point:])
-
-        return [offspring1, offspring2]
+        
+        return Recombination.__mutate_offspring([offspring1, offspring2], mutation_probability)
     
     
-    def recombination_two_point_crossover(parent1: Organism, parent2: Organism)-> list:
+    def recombination_two_point_crossover(parent1: Organism, parent2: Organism, mutation_probability: float)-> list:
         """
         This method performs a two-point crossover recombination between two parent organisms.
         In two-point crossover, two random crossover points are selected, and the genes of the parents
@@ -41,6 +42,7 @@ class Recombination:
         ### Parameters
         - parent1 (`Organism`): The first parent organism.
         - parent2 (`Organism`): The second parent organism.
+        - mutation_probability (`float`): The probability of mutating the offspring.
 
         ### Returns
         - `list`: A list of two offspring organisms.
@@ -53,10 +55,10 @@ class Recombination:
         offspring1 = Organism(None, parent1.chromosome[:crossover_points[0]] + parent2.chromosome[crossover_points[0]:crossover_points[1]] + parent1.chromosome[crossover_points[1]:])
         offspring2 = Organism(None, parent2.chromosome[:crossover_points[0]] + parent1.chromosome[crossover_points[0]:crossover_points[1]] + parent2.chromosome[crossover_points[1]:])
 
-        return [offspring1, offspring2]
+        return Recombination.__mutate_offspring([offspring1, offspring2], mutation_probability)
     
 
-    def recombination_uniform_crossover(parent1: Organism, parent2: Organism, probability: float)-> list:
+    def recombination_uniform_crossover(parent1: Organism, parent2: Organism, probability: float, mutation_probability: float)-> list:
         """
         This method performs a uniform crossover recombination between two parent organisms.
         In uniform crossover, each gene is selected from one of the parents with a given probability.
@@ -65,6 +67,7 @@ class Recombination:
         - parent1 (`Organism`): The first parent organism.
         - parent2 (`Organism`): The second parent organism.
         - probability (`float`): The probability of selecting a gene from the first parent.
+        - mutation_probability (`float`): The probability of mutating the offspring.
 
         ### Returns
         - `list`: A list of two offspring organisms.
@@ -79,10 +82,10 @@ class Recombination:
         offspring1 = Organism(None, [parent1.chromosome[i] if random.random() < probability else parent2.chromosome[i] for i in range(parent1.chromosome_length)])
         offspring2 = Organism(None, [parent2.chromosome[i] if random.random() < probability else parent1.chromosome[i] for i in range(parent1.chromosome_length)])
 
-        return [offspring1, offspring2]
+        return Recombination.__mutate_offspring([offspring1, offspring2], mutation_probability)
     
 
-    def recombination_multi_point_crossover(parent1: Organism, parent2: Organism, num_points: int)-> list:
+    def recombination_multi_point_crossover(parent1: Organism, parent2: Organism, num_points: int, mutation_probability: float)-> list:
         """
         This method performs a multi-point crossover recombination between two parent organisms.
         In multi-point crossover, multiple random crossover points are selected, and the genes of the parents
@@ -92,6 +95,7 @@ class Recombination:
         - parent1 (`Organism`): The first parent organism.
         - parent2 (`Organism`): The second parent organism.
         - num_points (`int`): The number of crossover points.
+        - mutation_probability (`float`): The probability of mutating the offspring.
 
         ### Returns
         - `list`: A list of two offspring organisms.
@@ -131,7 +135,7 @@ class Recombination:
         offspring1 = Organism(None, offspring1_chromosome)
         offspring2 = Organism(None, offspring2_chromosome)
 
-        return [offspring1, offspring2]
+        return Recombination.__mutate_offspring([offspring1, offspring2], mutation_probability)
     # +++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
@@ -141,4 +145,27 @@ class Recombination:
     # --------------------------------------------------
     # Private Methods
     # --------------------------------------------------
+    def __mutate_offspring(offspring: list, mutation_rate: float):
+        """
+        This method mutates the offspring organisms by flipping the value of a random gene.
+        This is based on the mutation probability (GeneticAlgorithm._mutation_rate)
+
+        ### Parameters
+        - offspring (`list`): A list of offspring organisms.
+        - mutation_rate (`float`): The probability of mutating a gene.
+
+        ### Returns
+        - `list`: A list of mutated offspring organisms.
+        """
+
+        # Iterate over the offspring organisms
+        organism: Organism
+        for organism in offspring:
+            # Iterate over the genes in the chromosome
+            for i in range(organism.chromosome_length):
+                # Check if the gene should be mutated
+                if random.random() < mutation_rate:
+                    # Flip the value of the gene
+                    organism.chromosome[i] = 1 if organism.chromosome[i] == 0 else 0
+        return offspring
     # +++++++++++++++++++++++++++++++++++++++++++++++++++

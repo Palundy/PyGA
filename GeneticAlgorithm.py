@@ -46,6 +46,7 @@ class GeneticAlgorithm:
     _tournament_size = 0
     _multi_point_num_points = 0
     __uniform_crossover_probability = None
+    _mutation_probability = 0.001 # Default mutation probability (0.1%)
     # +++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
@@ -60,12 +61,12 @@ class GeneticAlgorithm:
         pass
 
 
-    def add_gene(self, alias: str, bottom_value: int, top_value: int, bitsize: int)-> "GeneticAlgorithm":
+    def add_gene(self, property: str, bottom_value: int, top_value: int, bitsize: int)-> "GeneticAlgorithm":
         """
         This method adds a gene to the genetic algorithm.
 
         ### Parameters
-        - alias (`str`): The alias of the gene.
+        - property (`str`): The property (name) of the gene.
         - bottom_value (`int`): The bottom value of the gene.
         - top_value (`int`): The top value of the gene. 
         - bitsize (`int`): The bitsize of the gene. This represents the amount of bits used to represent the gene. Given that bitsize is `n`, the gene can have `2ⁿ` possible values. Minimum value of the bitsize 1.
@@ -87,9 +88,9 @@ class GeneticAlgorithm:
         if bottom_value > top_value:
             raise GeneticAlgorithm.InvalidGeneValue("The bottom_value cannot be greater than the top_value.")
         
-        # Check whether there is a gene with the same alias
-        if alias in self._genes:
-            raise GeneticAlgorithm.InvalidGeneValue("The gene alias already exists.")
+        # Check whether there is a gene with the same property
+        if property in self._genes:
+            raise GeneticAlgorithm.InvalidGeneValue("The gene property already exists.")
         
         
         # The bit positions of the gene should be calculated
@@ -99,7 +100,7 @@ class GeneticAlgorithm:
 
 
         # Add the gene to the genetic algorithm
-        self._genes[alias] = (bottom_index, top_index, bottom_value, top_value, bitsize)
+        self._genes[property] = (bottom_index, top_index, bottom_value, top_value, bitsize)
 
         # Update the chromosome length
         self._chromosome_length += bitsize
@@ -345,7 +346,7 @@ class GeneticAlgorithm:
 
         # Retrieve the gene properties
         gene_value = 0
-        for gene_alias, gene in self._genes.items():
+        for gene_property, gene in self._genes.items():
             # Unpack the gene
             bottom_index, top_index, bottom_value, top_value, bitsize = gene
 
@@ -362,13 +363,13 @@ class GeneticAlgorithm:
             gene_value = bottom_value + (top_value - bottom_value) * gene_value / (2**bitsize)
         
             # Add the gene value to the properties
-            properties[gene_alias] = gene_value
+            properties[gene_property] = gene_value
 
         # Format the properties
         return_string = "[Organism]\n"
         for key, value in properties.items():
             return_string += f"     {key}: {value}\n"
-        return_string += f"     Fitness: {organism.fitness}\n"
+        return_string += f"  Fitness: {organism.fitness}\n"
 
         return return_string
     # +++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -437,16 +438,16 @@ class GeneticAlgorithm:
 
         # Recombine the organisms
         if self._recombination_method == GeneticAlgorithm.RECOMBINATION_SINGLE_CROSSOVER:
-            return Recombination.recombination_single_crossover(organism1, organism2)
+            return Recombination.recombination_single_crossover(organism1, organism2, self._mutation_probability)
         
         if self._recombination_method == GeneticAlgorithm.RECOMBINATION_TWO_POINT_CROSSOVER:
-            return Recombination.recombination_two_point_crossover(organism1, organism2)
+            return Recombination.recombination_two_point_crossover(organism1, organism2, self._mutation_probability)
         
         if self._recombination_method == GeneticAlgorithm.RECOMBINATION_UNIFORM_CROSSOVER:
-            return Recombination.recombination_uniform_crossover(organism1, organism2, self._uniform_crossover_probability)
+            return Recombination.recombination_uniform_crossover(organism1, organism2, self._uniform_crossover_probability, self._mutation_probability)
         
         if self._recombination_method == GeneticAlgorithm.RECOMBINATION_MULTI_POINT_CROSSOVER:
-            return Recombination.recombination_multi_point_crossover(organism1, organism2, self._multi_point_num_points)
+            return Recombination.recombination_multi_point_crossover(organism1, organism2, self._multi_point_num_points, self._mutation_probability)
         
         raise GeneticAlgorithm.GeneticAlgorithmException("Invalid recombination method.")
     
@@ -471,7 +472,7 @@ class GeneticAlgorithm:
 
         # Retrieve the gene properties
         gene_value = 0
-        for gene_alias, gene in self._genes.items():
+        for gene_property, gene in self._genes.items():
             # Unpack the gene
             bottom_index, top_index, bottom_value, top_value, bitsize = gene
 
@@ -488,7 +489,7 @@ class GeneticAlgorithm:
             gene_value = bottom_value + (top_value - bottom_value) * gene_value / (2**bitsize)
         
             # Add the gene value to the properties
-            properties[gene_alias] = gene_value
+            properties[gene_property] = gene_value
 
         # Calculate the fitness
         return self._fitness_function(properties)
@@ -521,6 +522,27 @@ class GeneticAlgorithm:
         - value (`int`): The size of the selection.
         """
         self._selection_size = value
+
+    @property
+    def mutation_probability(self):
+        """
+        This property returns the probability of mutation.
+
+        ### Returns
+        - float: The probability of mutation.
+        """
+        return self._mutation_probability
+    
+
+    @mutation_probability.setter
+    def mutation_probability(self, value: float):
+        """
+        This property sets the probability of mutation.
+
+        ### Parameters
+        - value (`float`): The probability of mutation.
+        """
+        self._mutation_probability = value
 
 
     @property

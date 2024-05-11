@@ -16,17 +16,11 @@ items = {
     "painting": {"weight": 2, "value": 70},
     "books": {"weight": 1, "value": 30},
     "plants": {"weight": 1, "value": 20},
-    "candles": {"weight": 1, "value": 10000},
+    "candles": {"weight": 1, "value": 10},
     "pillows": {"weight": 1, "value": 15},
     "blankets": {"weight": 1, "value": 20},
     "headphones": {"weight": 1, "value": 50},
-    "camera": {"weight": 2, "value": 100},
-    # Add some radical items
-    "diamonds": {"weight": 1, "value": 1000},
-    "gold": {"weight": 1, "value": 500},
-    "silver": {"weight": 1, "value": 200},
-    "platinum": {"weight": 1, "value": 300},
-    "copper": {"weight": 1, "value": 100},
+    "camera": {"weight": 2, "value": 100}
 }
 
 
@@ -54,7 +48,7 @@ def fitness_function(properties: dict):
     # Penalize the fitness if the total weight exceeds the maximum weight
     max_weight = 20
     if total_weight > max_weight:
-        total_value -= (total_weight - max_weight) * 10
+        total_value = 0
     return total_value
 
 
@@ -68,23 +62,23 @@ for item in items:
     GA.add_gene(item, 0, 2, 1)
 
 # Configure the genetic algorithm
-GA.recombination_method(GeneticAlgorithm.RECOMBINATION_MULTI_POINT_CROSSOVER)
-GA.multi_point_num_points = 4
-GA.selection_method(GeneticAlgorithm.SELECTION_TOURNAMENT)
+GA.recombination_method(GeneticAlgorithm.RECOMBINATION_SINGLE_CROSSOVER)
+GA.selection_method(GeneticAlgorithm.SELECTION_ROULETTE_WHEEL)
 GA.generate_population(100)
-GA.selection_size = 5
+GA.mutation_rate = 0.5
+GA.selection_size = 10
 GA.tournament_size = 3
 
 mean_fitness = []
 best_fitness = []
 champion_organism_fitness = 0
 champion_organism = None
-for i in range(100):
+for i in range(5000):
 
     # Evaluate the fitness of the population
     GA.evaluate_population()
 
-    # Print the best organism
+    # Retrieve the best organism
     best_organism = GA.best_organism()
 
     if champion_organism_fitness == 0 or champion_organism_fitness < best_organism.fitness:
@@ -94,6 +88,8 @@ for i in range(100):
     # Append the values to the list
     mean_fitness.append(GA.mean_fitness())
     best_fitness.append(best_organism.fitness)
+
+    print(f"Generation {i}: The best fitness is {best_organism.fitness} and the mean fitness is {GA.mean_fitness()}")
 
     # Generate the next population
     # this method recombines and mutates the population
