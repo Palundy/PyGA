@@ -519,6 +519,43 @@ class GeneticAlgorithm:
 
         # Calculate the fitness
         return self._fitness_function(properties)
+    
+
+    def get_organism_gene(self, organism: Organism, gene_property: str)-> any:
+        """
+        This method returns the value of a gene of an organism.
+
+        ### Parameters
+        - organism (`Organism`): The organism to get the gene value from.
+        - gene_property (`str`): The property of the gene.
+
+        ### Returns
+        - `any`: The value of the gene.
+        """
+
+        # Retrieve the genes
+        genes = organism.chromosome
+
+        # Retrieve the gene properties
+        gene_value = 0
+        gene = self._genes[gene_property]
+
+        # Unpack the gene
+        bottom_index, top_index, bottom_value, top_value, bitsize = gene
+
+        # Slice the gene from the chromosome
+        gene_part = genes[bottom_index:top_index]
+
+        # Convert the gene (list) to a binary string
+        gene_part = ''.join([str(gene) for gene in gene_part])
+
+        # Convert the binary string to an integer
+        gene_value = int(gene_part, 2)
+
+        # Calculate the value of the gene
+        gene_value = bottom_value + (top_value - bottom_value) * gene_value / (2**bitsize)
+
+        return gene_value
     # +++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
