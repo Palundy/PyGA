@@ -49,6 +49,8 @@ class GeneticAlgorithm:
     __uniform_crossover_probability = None
     _mutation_probability = 0.001 # Default mutation probability (0.1%)
     _number_of_threads = 2
+
+    _count_organisms_evaluated = 0
     # +++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
@@ -294,8 +296,9 @@ class GeneticAlgorithm:
             population_per_thread = self._population_size // self._number_of_threads
 
             def evaluate_part_of_population(start, end):
-                for i, _ in enumerate(self._population[start:end]):
-                    self._population[i].fitness = self.__fitness(self._population[i])
+                for index in range(start, end):
+                    self._population[index].fitness = self.__fitness(self._population[index])
+                    self._count_organisms_evaluated += 1
 
             threads = []
             for i in range(self._number_of_threads):
@@ -305,8 +308,13 @@ class GeneticAlgorithm:
                     end = self._population_size
                 threads.append(threading.Thread(target=evaluate_part_of_population, args=(start, end)))
 
+            # The threads are started and joined
+            # The starting and joining of the threads is done in a loop
+            # to ensure that all threads are started before they are joined
+            # This allows for parallel execution of the threads
             for thread in threads:
                 thread.start()
+            for thread in threads:
                 thread.join()
 
             pass
@@ -314,6 +322,7 @@ class GeneticAlgorithm:
             # Evaluate the fitness of the population
             for organism in self._population:
                 organism.fitness = self.__fitness(organism)
+                self._count_organisms_evaluated += 1
 
         # Update the population evaluated flag
         self._population_evaluated = True
@@ -721,6 +730,17 @@ class GeneticAlgorithm:
         - value (`float`): The probability of selecting a gene from the first parent.
         """
         self.__uniform_crossover_probability = value
+
+
+    @property
+    def organisms_evaluated(self)-> int:
+        """
+        This property returns the number of organisms that have been evaluated.
+
+        ### Returns
+        - int: The number of organisms that have been evaluated.
+        """
+        return self._count_organisms_evaluated
     # +++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
