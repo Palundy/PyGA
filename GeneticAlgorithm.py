@@ -46,7 +46,7 @@ class GeneticAlgorithm:
     _generation_count = 0
     _tournament_size = 0
     _multi_point_num_points = 0
-    __uniform_crossover_probability = None
+    _uniform_crossover_probability = None
     _mutation_probability = 0.001 # Default mutation probability (0.1%)
     _number_of_threads = 2
 
@@ -407,6 +407,47 @@ class GeneticAlgorithm:
         return_string += f"  Fitness: {organism.fitness}\n"
 
         return return_string
+    
+
+    def retrieve_gene_properties(self, organism: Organism)-> dict:
+        """
+        This method retrieves the gene properties of an organism.
+
+        ### Parameters
+        - organism (`Organism`): The organism to retrieve the gene properties from.
+
+        ### Returns
+        - dict: A dictionary of the gene properties.
+        """
+
+        # Convert the genes to properties
+        properties = {}
+
+        # Retrieve the genes
+        genes = organism.chromosome
+
+        # Retrieve the gene properties
+        gene_value = 0
+        for gene_property, gene in self._genes.items():
+            # Unpack the gene
+            bottom_index, top_index, bottom_value, top_value, bitsize = gene
+
+            # Slice the gene from the chromosome
+            gene_part = genes[bottom_index:top_index]
+
+            # Convert the gene (list) to a binary string
+            gene_part = ''.join([str(gene) for gene in gene_part])
+
+            # Convert the binary string to an integer
+            gene_value = int(gene_part, 2)
+
+            # Calculate the value of the gene
+            gene_value = bottom_value + (top_value - bottom_value) * gene_value / (2**bitsize)
+        
+            # Add the gene value to the properties
+            properties[gene_property] = gene_value
+
+        return properties
     # +++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
@@ -597,6 +638,28 @@ class GeneticAlgorithm:
 
 
     @property
+    def population_size(self):
+        """
+        This property returns the size of the population.
+
+        ### Returns
+        - int: The size of the population.
+        """
+        return self._population_size
+    
+
+    @population_size.setter
+    def population_size(self, value: int):
+        """
+        This property sets the size of the population.
+
+        ### Parameters
+        - value (`int`): The size of the population.
+        """
+        self._population_size = value
+
+
+    @property
     def number_of_threads(self):
         """
         This property returns the number of threads to be used for evaluating the population.
@@ -718,7 +781,7 @@ class GeneticAlgorithm:
         ### Returns
         - float: The probability of selecting a gene from the first parent.
         """
-        return self.__uniform_crossover_probability
+        return self._uniform_crossover_probability
     
 
     @uniform_crossover_probability.setter
@@ -729,7 +792,7 @@ class GeneticAlgorithm:
         ### Parameters
         - value (`float`): The probability of selecting a gene from the first parent.
         """
-        self.__uniform_crossover_probability = value
+        self._uniform_crossover_probability = value
 
 
     @property

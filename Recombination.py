@@ -75,8 +75,8 @@ class Recombination:
 
         if probability is None:
             raise ValueError("The uniform crossover probability must be specified. Use `GeneticAlgorithm.uniform_crossover_probability = probabiltiy` to set the probability.")
-        if probability < 0 or probability > 1 or probability:
-            raise ValueError("The uniform crossover probability must be a value between 0 and 1. Update the value with `GeneticAlgorithm.uniform_crossover_probability = probability`.")
+        if probability < 0 or probability > 1:
+            raise ValueError(f"The uniform crossover probability must be a value between 0 and 1. Thed current value is '{probability}' Update the value with `GeneticAlgorithm.uniform_crossover_probability = probability`.")
 
         # Perform uniform crossover
         offspring1 = Organism(None, [parent1.chromosome[i] if random.random() < probability else parent2.chromosome[i] for i in range(parent1.chromosome_length)])
