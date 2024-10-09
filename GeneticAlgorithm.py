@@ -1,6 +1,6 @@
-from Organism import Organism
-from Selection import Selection
-from Recombination import Recombination
+from .Organism import Organism
+from .Selection import Selection
+from .Recombination import Recombination
 
 import threading
 import random

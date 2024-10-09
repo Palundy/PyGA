@@ -1,4 +1,4 @@
-from Organism import Organism
+from .Organism import Organism
 
 import random
 
