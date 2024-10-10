@@ -3,7 +3,7 @@ from .Selection import Selection
 from .Recombination import Recombination
 
 import threading
-import random
+import numpy as np
 
 
 # Ideas and Notes!
@@ -20,6 +20,7 @@ class GeneticAlgorithm:
     RECOMBINATION_TWO_POINT_CROSSOVER = 1
     RECOMBINATION_UNIFORM_CROSSOVER = 2
     RECOMBINATION_MULTI_POINT_CROSSOVER = 3
+    RECOMBINATION_2D_SPATIAL_CROSSOVER = 4
     SELECTION_ROULETTE_WHEEL = 0
     SELECTION_RANK = 1
     SELECTION_TOURNAMENT = 2
@@ -39,6 +40,7 @@ class GeneticAlgorithm:
     _population = []
     _gene_count = 0
     _genes = {}
+    _gene_lengths = []
     _chromosome_length = 0
     _recombination_method = None
     _selection_method = None
@@ -49,6 +51,8 @@ class GeneticAlgorithm:
     _uniform_crossover_probability = None
     _mutation_probability = 0.001 # Default mutation probability (0.1%)
     _number_of_threads = 2
+    _spatial_crossover_grid_shape = None
+    _spatial_crossover_subgrid_shape = None
 
     _count_organisms_evaluated = 0
     # +++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -105,6 +109,7 @@ class GeneticAlgorithm:
 
         # Add the gene to the genetic algorithm
         self._genes[property] = (bottom_index, top_index, bottom_value, top_value, bitsize)
+        self._gene_lengths.append(bitsize)
 
         # Update the chromosome length
         self._chromosome_length += bitsize
@@ -133,7 +138,8 @@ class GeneticAlgorithm:
             GeneticAlgorithm.RECOMBINATION_SINGLE_CROSSOVER,
             GeneticAlgorithm.RECOMBINATION_TWO_POINT_CROSSOVER,
             GeneticAlgorithm.RECOMBINATION_UNIFORM_CROSSOVER,
-            GeneticAlgorithm.RECOMBINATION_MULTI_POINT_CROSSOVER
+            GeneticAlgorithm.RECOMBINATION_MULTI_POINT_CROSSOVER,
+            GeneticAlgorithm.RECOMBINATION_2D_SPATIAL_CROSSOVER
         ]:
             raise GeneticAlgorithm.InvalidRecombinationMethod("Invalid recombination method.")
         
@@ -374,31 +380,7 @@ class GeneticAlgorithm:
         """
         
         # Convert the genes to properties
-        properties = {}
-
-        # Retrieve the genes
-        genes = organism.chromosome
-
-        # Retrieve the gene properties
-        gene_value = 0
-        for gene_property, gene in self._genes.items():
-            # Unpack the gene
-            bottom_index, top_index, bottom_value, top_value, bitsize = gene
-
-            # Slice the gene from the chromosome
-            gene_part = genes[bottom_index:top_index]
-
-            # Convert the gene (list) to a binary string
-            gene_part = ''.join([str(gene) for gene in gene_part])
-
-            # Convert the binary string to an integer
-            gene_value = int(gene_part, 2)
-
-            # Calculate the value of the gene
-            gene_value = bottom_value + (top_value - bottom_value) * gene_value / (2**bitsize)
-        
-            # Add the gene value to the properties
-            properties[gene_property] = gene_value
+        properties = self.retrieve_gene_properties(organism)
 
         # Format the properties
         return_string = "[Organism]\n"
@@ -409,7 +391,7 @@ class GeneticAlgorithm:
         return return_string
     
 
-    def retrieve_gene_properties(self, organism: Organism)-> dict:
+    def retrieve_gene_properties(self, organism: Organism)-> dict|list:
         """
         This method retrieves the gene properties of an organism.
 
@@ -429,6 +411,7 @@ class GeneticAlgorithm:
         # Retrieve the gene properties
         gene_value = 0
         for gene_property, gene in self._genes.items():
+
             # Unpack the gene
             bottom_index, top_index, bottom_value, top_value, bitsize = gene
 
@@ -448,6 +431,69 @@ class GeneticAlgorithm:
             properties[gene_property] = gene_value
 
         return properties
+    
+
+    def get_organism_gene(self, organism: Organism, gene_property: str)-> float:
+        """
+        This method returns the value of a gene of an organism.
+
+        ### Parameters
+        - organism (`Organism`): The organism to get the gene value from.
+        - gene_property (`str`): The property of the gene.
+
+        ### Returns
+        - `any`: The value of the gene.
+        """
+
+        # Retrieve the genes
+        genes = organism.chromosome
+
+        # Retrieve the gene properties
+        gene_value = 0
+        gene = self._genes[gene_property]
+
+        # Unpack the gene
+        bottom_index, top_index, bottom_value, top_value, bitsize = gene
+
+        # Slice the gene from the chromosome
+        gene_part = genes[bottom_index:top_index]
+
+        # Convert the gene (list) to a binary string
+        gene_part = ''.join([str(gene) for gene in gene_part])
+
+        # Convert the binary string to an integer
+        gene_value = int(gene_part, 2)
+
+        # Calculate the value of the gene
+        gene_value = bottom_value + (top_value - bottom_value) * gene_value / (2**bitsize)
+
+        return gene_value
+    
+
+    def spatial_crossover_parameters(self, grid_shape: tuple, subgrid_shape: tuple)-> "GeneticAlgorithm":
+        """
+        This method sets the parameters for 2D spatial crossover.
+
+        ### Parameters
+        - grid_shape (`tuple`): The shape of the grid.
+        - subgrid_shape (`tuple`): The shape of the subgrid.
+
+        ### Returns
+        - `GeneticAlgorithm`: This instance of the genetic algorithm.
+        """
+
+        # Retrieve the grid shape and the subgrid shape
+        n, m = grid_shape
+        k, l = subgrid_shape
+
+        # Check whether the subgrid shape is valid
+        if k > n or l > m:
+            raise GeneticAlgorithm.InvalidSpatialCrossoverParameters("The subgrid shape is larger than the grid shape. The subgrid shape should be smaller than the grid shape.")
+
+        # Set the spatial crossover parameters        
+        self._spatial_crossover_grid_shape = grid_shape
+        self._spatial_crossover_subgrid_shape = subgrid_shape
+        return self
     # +++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
@@ -525,6 +571,12 @@ class GeneticAlgorithm:
         if self._recombination_method == GeneticAlgorithm.RECOMBINATION_MULTI_POINT_CROSSOVER:
             return Recombination.recombination_multi_point_crossover(organism1, organism2, self._multi_point_num_points, self._mutation_probability)
         
+        if self._recombination_method == GeneticAlgorithm.RECOMBINATION_2D_SPATIAL_CROSSOVER:
+            # Check whether the spatial crossover parameters have been set
+            if self._spatial_crossover_grid_shape is None or self._spatial_crossover_subgrid_shape is None:
+                raise GeneticAlgorithm.GeneticAlgorithmException("The spatial crossover parameters have not been set. Use the `GeneticAlgorithm.spatial_crossover_parameters()` method to set the spatial crossover parameters.")
+            return Recombination.recombination_2d_spatial_crossover(organism1, organism2, self._spatial_crossover_grid_shape, self._spatial_crossover_subgrid_shape, self._mutation_probability, self._gene_lengths)
+        
         raise GeneticAlgorithm.GeneticAlgorithmException("Invalid recombination method.")
     
 
@@ -569,43 +621,6 @@ class GeneticAlgorithm:
 
         # Calculate the fitness
         return self._fitness_function(properties)
-    
-
-    def get_organism_gene(self, organism: Organism, gene_property: str)-> any:
-        """
-        This method returns the value of a gene of an organism.
-
-        ### Parameters
-        - organism (`Organism`): The organism to get the gene value from.
-        - gene_property (`str`): The property of the gene.
-
-        ### Returns
-        - `any`: The value of the gene.
-        """
-
-        # Retrieve the genes
-        genes = organism.chromosome
-
-        # Retrieve the gene properties
-        gene_value = 0
-        gene = self._genes[gene_property]
-
-        # Unpack the gene
-        bottom_index, top_index, bottom_value, top_value, bitsize = gene
-
-        # Slice the gene from the chromosome
-        gene_part = genes[bottom_index:top_index]
-
-        # Convert the gene (list) to a binary string
-        gene_part = ''.join([str(gene) for gene in gene_part])
-
-        # Convert the binary string to an integer
-        gene_value = int(gene_part, 2)
-
-        # Calculate the value of the gene
-        gene_value = bottom_value + (top_value - bottom_value) * gene_value / (2**bitsize)
-
-        return gene_value
     # +++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
@@ -835,6 +850,12 @@ class GeneticAlgorithm:
         """
         This exception is raised when an invalid gene value
         is set for the genetic algorithm.
+        """
+        pass
+    class InvalidSpatialCrossoverParameters(Exception):
+        """
+        This exception is raised when invalid parameters
+        are set for 2D spatial crossover.
         """
         pass
     # +++++++++++++++++++++++++++++++++++++++++++++++++++

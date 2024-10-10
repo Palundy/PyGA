@@ -1,6 +1,7 @@
 from .Organism import Organism
 
 import random
+import numpy as np
 
 
 class Recombination:
@@ -134,6 +135,104 @@ class Recombination:
         # Create offspring organisms
         offspring1 = Organism(None, offspring1_chromosome)
         offspring2 = Organism(None, offspring2_chromosome)
+
+        return Recombination.__mutate_offspring([offspring1, offspring2], mutation_probability)
+    
+
+    def recombination_2d_spatial_crossover(parent1: Organism, parent2: Organism, grid_shape: tuple, subgrid_shape: tuple, mutation_probability: float, gene_lengths: list)-> list:
+        """
+        This method performs a 2D spatial crossover recombination between two parent organisms.
+        In 2D spatial crossover, a subgrid is selected from each parent, and the genes of the parents
+        are exchanged to create two new offspring.
+
+        This method is useful for problems where the position of the genes in the chromosome is important,
+        such as grid-based problems.
+
+        ### Parameters
+        - parent1 (`Organism`): The first parent organism.
+        - parent2 (`Organism`): The second parent organism.
+        - grid_shape (`tuple`): The shape of the grid.
+        - subgrid_shape (`tuple`): The shape of the subgrid.
+        - mutation_probability (`float`): The probability of mutating the offspring.
+        - gene_lengths (`list`): A list consisting of the lengths of each gene in the chromosome.
+
+        ### Returns
+        - `list`: A list of two offspring organisms.
+        """
+
+        # Define the grid parameters and subgrid parameters
+        n, m = grid_shape
+        k, l = subgrid_shape
+
+        # Retrieve the chromosomes of the parent organisms
+        chromosome1 = parent1.chromosome
+        chromosome2 = parent2.chromosome
+
+
+        # Check whether the chromosome can be represented as a 2D grid
+        if len(gene_lengths) != n * m:
+            raise ValueError(f"The number of genes in the chromosome ({len(gene_lengths)}) does not match the grid shape ({n}x{m}). Spatial crossover requires that the number of genes in the chromosome matches the the area of the grid")
+
+
+        # Initialize a 2D grid with the indices
+        # of all the genes in the chromosome
+        gene_grid1 = np.array([], dtype=str)
+        gene_grid2 = np.array([], dtype=str)
+
+        # Fill the gene grids
+        for i in range(len(gene_lengths)):
+
+            # Retrieve the gene length
+            gene_length = gene_lengths[i]
+
+            # Retrieve the genes (slice of the chromosome)
+            gene1 = "".join([str(gene) for gene in chromosome1[:gene_length]])	
+            gene2 = "".join([str(gene) for gene in chromosome2[:gene_length]])
+
+            # Slice the genes off the chromosome
+            chromosome1 = chromosome1[gene_length:]
+            chromosome2 = chromosome2[gene_length:]
+
+            # Append the genes to the gene grids
+            gene_grid1 = np.append(gene_grid1, gene1)
+            gene_grid2 = np.append(gene_grid2, gene2)
+
+        # Reshape the genes grids to match the grid shape
+        gene_grid1 = gene_grid1.reshape(grid_shape)
+        gene_grid2 = gene_grid2.reshape(grid_shape)
+
+
+        # Select a random subgrid
+        x = random.randint(0, n - k + 1)
+        y = random.randint(0, m - l + 1)
+
+
+        # Slice the subgrids from the parent gene grids
+        subgrid1 = gene_grid1[y:y + l, x:x + k].copy() # From the first parent
+        subgrid2 = gene_grid2[y:y + l, x:x + k].copy() # From the second parent
+
+        # Perform the crossover (swapping the gene subgrids)
+        offspring_gene_grid1 = gene_grid1.copy()
+        offspring_gene_grid2 = gene_grid2.copy()
+        offspring_gene_grid1[y:y + l, x:x + k] = subgrid2
+        offspring_gene_grid2[y:y + l, x:x + k] = subgrid1
+
+        # Reflatten the genes grids 
+        offspring_gene_grid1 = offspring_gene_grid1.flatten().tolist()
+        offspring_gene_grid2 = offspring_gene_grid2.flatten().tolist()
+        # These lists now contain the genes (as strings)
+        
+        #   Convert the genes back to a list of integers (the chromosome)
+        offspring_chromosome1 = []
+        offspring_chromosome2 = []
+        for i in range(len(offspring_gene_grid1)):
+            offspring_chromosome1 += list(offspring_gene_grid1[i])
+            offspring_chromosome2 += list(offspring_gene_grid2[i])
+
+
+        # Create offspring organisms
+        offspring1 = Organism(None, offspring_chromosome1)
+        offspring2 = Organism(None, offspring_chromosome2)
 
         return Recombination.__mutate_offspring([offspring1, offspring2], mutation_probability)
     # +++++++++++++++++++++++++++++++++++++++++++++++++++
