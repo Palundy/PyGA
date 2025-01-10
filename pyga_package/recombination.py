@@ -1,4 +1,4 @@
-from .Organism import Organism
+from .organism import Organism
 
 import random
 import numpy as np
