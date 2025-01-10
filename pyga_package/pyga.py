@@ -1,7 +1,9 @@
 from .organism import Organism
 from .selection import Selection
 from .recombination import Recombination
+import numpy as np
 import threading
+
 
 
 # Ideas and Notes!
@@ -39,6 +41,7 @@ class PyGA:
     _gene_count = 0
     _genes = {}
     _gene_lengths = []
+    _highest_fitnesses = []
     _chromosome_length = 0
     _recombination_method = None
     _selection_method = None
@@ -52,6 +55,10 @@ class PyGA:
     _spatial_crossover_grid_shape = None
     _spatial_crossover_subgrid_shape = None
     _count_organisms_evaluated = 0
+    _convergence_threshold = 0.05
+    _convergence_window_size = 10
+    _champion_organism = None
+    _champion_organism_fitness = 0
     # +++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
@@ -328,6 +335,20 @@ class PyGA:
 
         # Update the population evaluated flag
         self._population_evaluated = True
+
+        # Retrieve the highest fitness
+        # and append it to the highest fitnesses list
+        best_organism = self.best_organism()
+        self._highest_fitnesses.append(best_organism.fitness)
+
+        # Check whether this fitness score is the all time high
+        if best_organism.fitness > self._champion_organism_fitness:
+            # Assign this organism as the champion organism (all time high)
+            self._champion_organism = best_organism
+            self._champion_organism_fitness = best_organism.fitness
+
+        # Check whether the population has converged or stabilized
+        converged, stabilized = self.__convergence()
         
         # Return this instance of the GeneticAlgorithm
         return self
@@ -356,11 +377,23 @@ class PyGA:
         - `Organism`: The best organism in the population.
         """
 
-        if not self._population_evaluated:
+        if self._generation_count < 1:
             raise PyGA.GeneticAlgorithmException("The population has not been evaluated. Use the `GeneticAlgorithm.evaluate_population()` method to evaluate the fitness of the population.")
 
         # Find the best organism in the population
         return max(self._population, key=lambda organism: organism.fitness)
+
+    
+    def champion_organism(self)-> Organism:
+        """
+        This method returns the champion organism of the genetic algorithm.
+        The champion organism is the organism with the highest fitness score
+        that has been evaluated by the genetic algorithm.
+
+        ### Returns
+        - `Organism`: The champion organism.
+        """
+        return self._champion_organism
     
 
     def describe_organism(self, organism: Organism)-> str:
@@ -379,7 +412,7 @@ class PyGA:
         properties = self.retrieve_gene_properties(organism)
 
         # Format the properties
-        return_string = "[Organism]\n"
+        return_string = ""
         for key, value in properties.items():
             return_string += f"     {key}: {value}\n"
         return_string += f"  Fitness: {organism.fitness}\n"
@@ -617,6 +650,106 @@ class PyGA:
 
         # Calculate the fitness
         return self._fitness_function(properties)
+    
+
+    def __has_converged(self)-> bool:
+        """
+        This method checks whether the population has converged.
+
+        ### Returns
+        - `bool`: `True` if the population has converged, `False` otherwise.
+        """
+
+        # Check whether there are enough fitness scores
+        if len(self._highest_fitnesses) < self._convergence_window_size:
+            return False
+        highest_fitnesses = np.array(self._highest_fitnesses)
+        
+        # Normalize the fitness scores
+        normalized_fitnesses = self.__normalize_min_max(highest_fitnesses)
+
+        # Calculate the movering average 
+        moving_average = self.__moving_average(normalized_fitnesses, self._convergence_window_size)
+
+        # Check whether the moving average has converged
+        return np.std(moving_average) < self._convergence_threshold
+    
+
+    def __convergence(self)-> tuple[bool, bool]:
+        """
+        This method checks whether the population has converged or stabilized.
+        
+        ### Returns
+        - `tuple`: A tuple containing two boolean values. The first value indicates whether the population has converged, the second value indicates whether the population has stabilized.
+        """
+
+        # Convert to numpy array
+        fitness_scores = np.array(self._highest_fitnesses)
+
+        # Normalize the fitness scores
+        min_fitness = np.min(fitness_scores)
+        max_fitness = np.max(fitness_scores)
+        if max_fitness == min_fitness:
+            normalized_fitness_scores = fitness_scores
+        else:
+            normalized_fitness_scores = (fitness_scores - min_fitness) / (max_fitness - min_fitness)
+
+        # Calculate the moving average
+        moving_average = np.convolve(
+            normalized_fitness_scores,
+            np.ones(self._convergence_window_size) / self._convergence_window_size,
+            mode='valid'
+        )
+        if len(moving_average) < 2:
+            return False, False
+
+        # Calculate the standard deviation of the moving average
+        standard_deviation = np.std(moving_average)
+
+        # Check whether the fitness scores have stabilized
+        stabilized = standard_deviation < self._convergence_threshold
+
+        # Check whether the scores are converging
+        rate_of_change = np.diff(moving_average)
+        converged = np.max(rate_of_change) < self._convergence_threshold
+        return converged, stabilized
+
+
+        
+
+    def __normalize_min_max(self, fitness_scores: np.ndarray)-> np.ndarray:
+        """
+        This method normalizes a list of fitness scores between 0 and 1.
+
+        ### Parameters
+        - fitness_scores (`np.ndarray`): An array of fitness scores.
+
+        ### Returns
+        - `np.ndarray`: A numpy array of normalized fitness scores.
+        """
+        # Find the minimum and maximum fitness scores
+        min_fitness = np.min(fitness_scores)
+        max_fitness = np.max(fitness_scores)
+
+        # Check whether the minimum is the same as the maximum
+        if max_fitness == min_fitness:
+            return fitness_scores
+        return (fitness_scores - min_fitness) / (max_fitness - min_fitness)
+    
+
+    def __moving_average(self, normalized_fitnesses: np.ndarray, window_size: int)-> np.ndarray:
+        """
+        This method calculates the moving average of a list of normalized fitness scores.
+
+        ### Parameters
+        - normalized_fitnesses (`list`): A list of normalized fitness scores.
+        - window_size (`int`): The window size for the moving average.
+
+        ### Returns
+        - `highest_fitnesses`: A numpy array of the moving average of the normalized fitness scores.
+        """
+        normalized_fitnesses = np.array(normalized_fitnesses)
+        return np.convolve(normalized_fitnesses, np.ones(window_size)/window_size, mode='valid')
     # +++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
@@ -815,6 +948,17 @@ class PyGA:
         - `int`: The number of organisms that have been evaluated.
         """
         return self._count_organisms_evaluated
+    
+
+    @property
+    def highest_fitnesses(self)-> list:
+        """
+        This property returns the highest fitnesses of the population.
+
+        ### Returns
+        - `list`: The highest fitnesses of the population.
+        """
+        return self._highest_fitnesses
     # +++++++++++++++++++++++++++++++++++++++++++++++++++
 
 

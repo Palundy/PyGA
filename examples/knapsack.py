@@ -52,7 +52,12 @@ items = {
     "glucose": {"weight": 1, "value": 60},
     "tin": {"weight": 2, "value": 45},
     "banana": {"weight": 3, "value": 60},
-    "watch": {"weight": 1, "value": 10}
+    "watch": {"weight": 1, "value": 10},
+    "umbrella": {"weight": 1, "value": 40},
+    "sunglasses": {"weight": 1, "value": 20},
+    "notebook": {"weight": 1, "value": 30},
+    "pencil": {"weight": 1, "value": 10},
+    "gold_bar": {"weight": 10, "value": 1000},
 }
 
 
@@ -124,13 +129,18 @@ for generation in range(generations):
     # best organism in this generation
     best_organism = ga.best_organism()
     best_organism_description = ga.describe_organism(best_organism)
-    best_fitness_score = best_organism.fitness
-
-    # Append the fitness score to the array
-    fitness_scores.append(best_fitness_score)
 
     # Generate the next generation
     ga.generate_next_population()
+
+# Print the information of the best organism
+champion_organism = ga.champion_organism()
+champion_organism_description = ga.describe_organism(champion_organism)
+print("Champion Organism:")
+print(champion_organism_description)
+
+# Retrieve the list with highest fitness scores
+fitness_scores = ga.highest_fitnesses
 
 # Show the fitness scores
 plt.plot(fitness_scores)

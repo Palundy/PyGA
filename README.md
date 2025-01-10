@@ -1,1 +1,0 @@
-# PyGA - A simple genetic algorithm library
