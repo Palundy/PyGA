@@ -235,6 +235,32 @@ class Recombination:
         offspring2 = Organism(None, offspring_chromosome2)
 
         return Recombination.__mutate_offspring([offspring1, offspring2], mutation_probability)
+    
+
+    def mutate_population(population: list, mutation_rate: float)-> list:
+        """
+        This method mutates the organisms in the population by flipping the value of a random gene.
+        This is based on the mutation probability (`PyGA._mutation_rate`).
+
+        ### Parameters
+        - population (`list`): A list of organisms in the population.
+        - mutation_rate (`float`): The probability of mutating a gene.
+
+        ### Returns
+        - `list`: A list of mutated organisms.
+        """
+
+        # Iterate over the organisms in the population
+        organism: Organism
+        for organism in population:
+            # Iterate over the genes in the chromosome
+            for i in range(organism.chromosome_length):
+                # Check if the gene should be mutated
+                if random.random() < mutation_rate:
+                    # Flip the value of the gene
+                    organism.chromosome[i] = 1 if organism.chromosome[i] == 0 else 0
+        return population
+
     # +++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
@@ -247,7 +273,7 @@ class Recombination:
     def __mutate_offspring(offspring: list, mutation_rate: float):
         """
         This method mutates the offspring organisms by flipping the value of a random gene.
-        This is based on the mutation probability (GeneticAlgorithm._mutation_rate)
+        This is based on the mutation probability (`PyGA._mutation_rate`)
 
         ### Parameters
         - offspring (`list`): A list of offspring organisms.

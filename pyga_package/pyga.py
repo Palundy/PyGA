@@ -55,10 +55,15 @@ class PyGA:
     _spatial_crossover_grid_shape = None
     _spatial_crossover_subgrid_shape = None
     _count_organisms_evaluated = 0
-    _convergence_threshold = 0.05
-    _convergence_window_size = 10
+    _convergence_generation_amount = 20
     _champion_organism = None
     _champion_organism_fitness = 0
+    _dynamic_mutation = False
+    _dynamic_mutation_cooling_down = False
+    _dynamic_mutation_cooldown = 10
+    _dynamic_mutation_counter = 10
+    _dynamic_mutation_indices = []
+    organism_being_evaluated = None
     # +++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
@@ -195,14 +200,14 @@ class PyGA:
         - `PyGA`: This instance of the genetic algorithm.
 
         ### Exceptions
-        - `GeneticAlgorithmException`: Raised when the population has already been initialised.
+        - `PyGAException`: Raised when the population has already been initialised.
         - `InvalidGeneValue`: Raised when no genes have been added to the genetic algorithm.
         """
 
         if self._population_initialised:
             raise PyGA.GeneticAlgorithmException("The population has already been initialised.")
         if len(self._genes) == 0:
-            raise PyGA.InvalidGeneValue("No genes have been added to the genetic algorithm. Use the `GeneticAlgorithm.add_gene()` method to add genes.")
+            raise PyGA.InvalidGeneValue("No genes have been added to the genetic algorithm. Use the `PyGA.add_gene()` method to add genes.")
 
         # Generate the population
         for i in range(population_size):
@@ -240,15 +245,15 @@ class PyGA:
         """
 
         if not self._population_initialised:
-            raise PyGA.GeneticAlgorithmException("The population has not been initialised. Use the `GeneticAlgorithm.generate_population()` method to generate a population.")
+            raise PyGA.GeneticAlgorithmException("The population has not been initialised. Use the `PyGA.generate_population()` method to generate a population.")
         if not self._population_evaluated:
-            raise PyGA.GeneticAlgorithmException("The population has not been evaluated. Use the `GeneticAlgorithm.evaluate_population()` method to evaluate the fitness of the population.")
+            raise PyGA.GeneticAlgorithmException("The population has not been evaluated. Use the `PyGA.evaluate_population()` method to evaluate the fitness of the population.")
         if len(self._genes) == 0:
-            raise PyGA.InvalidGeneValue("No genes have been added to the genetic algorithm. Use the `GeneticAlgorithm.add_gene()` method to add genes.")
+            raise PyGA.InvalidGeneValue("No genes have been added to the genetic algorithm. Use the `PyGA.add_gene()` method to add genes.")
         if self._selection_method is None:
-            raise PyGA.GeneticAlgorithmException("No selection method has been set. Use the `GeneticAlgorithm.selection_method()` method to set a selection method.")
+            raise PyGA.GeneticAlgorithmException("No selection method has been set. Use the `PyGA.selection_method()` method to set a selection method.")
         if self._recombination_method is None:
-            raise PyGA.GeneticAlgorithmException("No recombination method has been set. Use the `GeneticAlgorithm.recombination_method()` method to set a recombination method.")
+            raise PyGA.GeneticAlgorithmException("No recombination method has been set. Use the `PyGA.recombination_method()` method to set a recombination method.")
         
         # Select organisms to reproduce
         selected_organisms = self.__select()
@@ -295,9 +300,9 @@ class PyGA:
         """
 
         if not self._population_initialised:
-            raise PyGA.GeneticAlgorithmException("The population has not been initialised. Use the `GeneticAlgorithm.generate_population()` method to generate a population.")
+            raise PyGA.GeneticAlgorithmException("The population has not been initialised. Use the `PyGA.generate_population()` method to generate a population.")
         if len(self._genes) == 0:
-            raise PyGA.InvalidGeneValue("No genes have been added to the genetic algorithm. Use the `GeneticAlgorithm.add_gene()` method to add genes.")
+            raise PyGA.InvalidGeneValue("No genes have been added to the genetic algorithm. Use the `PyGA.add_gene()` method to add genes.")
         
 
         # Check whether multithreading is enabled
@@ -307,6 +312,7 @@ class PyGA:
 
             def evaluate_part_of_population(start, end):
                 for index in range(start, end):
+                    self.organism_being_evaluated = index
                     self._population[index].fitness = self.__fitness(self._population[index])
                     self._count_organisms_evaluated += 1
 
@@ -329,7 +335,10 @@ class PyGA:
             pass
         else:
             # Evaluate the fitness of the population
-            for organism in self._population:
+            for i in range(len(self._population)):
+                organism = self._population[i]
+
+                self.organism_being_evaluated = i 
                 organism.fitness = self.__fitness(organism)
                 self._count_organisms_evaluated += 1
 
@@ -347,9 +356,21 @@ class PyGA:
             self._champion_organism = best_organism
             self._champion_organism_fitness = best_organism.fitness
 
-        # Check whether the population has converged or stabilized
-        converged, stabilized = self.__convergence()
-        
+
+        # Check whether the genetic algorithm has converged
+        if self._dynamic_mutation:
+            if self._dynamic_mutation_cooling_down:
+                self._dynamic_mutation_counter += 1
+                if self._dynamic_mutation_counter == self._dynamic_mutation_cooldown:
+                    self._dynamic_mutation_cooling_down = False
+                    self._dynamic_mutation_counter = 0
+            elif self.__has_converged():
+                    # Initiate the dynamic mutation
+                    print("Dynamic mutation initiated")
+                    self.mutate_population()
+                    self._dynamic_mutation_cooling_down = True
+                    self._dynamic_mutation_indices = self._generation_count
+
         # Return this instance of the GeneticAlgorithm
         return self
     
@@ -363,7 +384,7 @@ class PyGA:
         """
 
         if not self._population_evaluated:
-            raise PyGA.GeneticAlgorithmException("The population has not been evaluated. Use the `GeneticAlgorithm.evaluate_population()` method to evaluate the fitness of the population.")
+            raise PyGA.GeneticAlgorithmException("The population has not been evaluated. Use the `PyGA.evaluate_population()` method to evaluate the fitness of the population.")
 
         # Calculate the mean fitness of the population
         return sum([organism.fitness for organism in self._population]) / self._population_size
@@ -378,7 +399,7 @@ class PyGA:
         """
 
         if self._generation_count < 1:
-            raise PyGA.GeneticAlgorithmException("The population has not been evaluated. Use the `GeneticAlgorithm.evaluate_population()` method to evaluate the fitness of the population.")
+            raise PyGA.GeneticAlgorithmException("The population has not been evaluated. Use the `PyGA.evaluate_population()` method to evaluate the fitness of the population.")
 
         # Find the best organism in the population
         return max(self._population, key=lambda organism: organism.fitness)
@@ -396,13 +417,14 @@ class PyGA:
         return self._champion_organism
     
 
-    def describe_organism(self, organism: Organism)-> str:
+    def describe_organism(self, organism: Organism, round_values: bool = False)-> str:
         """
         This method describes an organism, by listing the properties
         of the organism in a readable format.
 
         ### Parameters
         - organism (`Organism`): The organism to describe.
+        - round_values (`bool`): Whether to round the gene values to the nearest integer.
 
         ### Returns
         - `str`: A string representation of the organism.
@@ -414,7 +436,7 @@ class PyGA:
         # Format the properties
         return_string = ""
         for key, value in properties.items():
-            return_string += f"     {key}: {value}\n"
+            return_string += f"     {key}: {round(value) if round_values else value}\n"
         return_string += f"  Fitness: {organism.fitness}\n"
 
         return return_string
@@ -522,6 +544,24 @@ class PyGA:
         self._spatial_crossover_grid_shape = grid_shape
         self._spatial_crossover_subgrid_shape = subgrid_shape
         return self
+    
+
+    def mutate_population(self)-> "PyGA":
+        """
+        This method mutates the population.
+
+        ### Returns
+        - `PyGA`: This instance of the genetic algorithm.
+        """
+
+        if not self._population_initialised:
+            raise PyGA.GeneticAlgorithmException("The population has not been initialised. Use the `PyGA.generate_population()` method to generate a population.")
+        if len(self._genes) == 0:
+            raise PyGA.InvalidGeneValue("No genes have been added to the genetic algorithm. Use the `PyGA.add_gene()` method to add genes.")
+        
+        # Mutate the whole population
+        self._population = Recombination.mutate_population(self._population, self._mutation_probability)
+        return self
     # +++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
@@ -543,7 +583,7 @@ class PyGA:
 
         # Check whether the population size has been set
         if self._selection_size == 0:
-            raise PyGA.GeneticAlgorithmException("The selection size has not been set. Use the `GeneticAlgorithm.selection_size()` method to set the selection size.")
+            raise PyGA.GeneticAlgorithmException("The selection size has not been set. Use the `PyGA.selection_size()` method to set the selection size.")
 
         selection = []
         for _ in range(self._selection_size):
@@ -557,7 +597,7 @@ class PyGA:
             
             if self._selection_method == PyGA.SELECTION_TOURNAMENT:
                 if self._tournament_size == 0:
-                    raise PyGA.GeneticAlgorithmException("The tournament size has not been set. Use the `GeneticAlgorithm.tournament_size = tournament_size` method to set the tournament size.")
+                    raise PyGA.GeneticAlgorithmException("The tournament size has not been set. Use the `PyGA.tournament_size = tournament_size` method to set the tournament size.")
 
                 selection.append(Selection.selection_tournament(self._population, self._tournament_size))
                 continue
@@ -581,7 +621,7 @@ class PyGA:
         """
 
         if self._recombination_method is None:
-            raise PyGA.GeneticAlgorithmException("No recombination method has been set. Use the `GeneticAlgorithm.recombination_method()` method to set a recombination method.")
+            raise PyGA.GeneticAlgorithmException("No recombination method has been set. Use the `PyGA.recombination_method()` method to set a recombination method.")
         if not self._population_initialised:
             raise PyGA.GeneticAlgorithmException("The population has not been initialised.")
         if len(self._genes) == 0:
@@ -603,7 +643,7 @@ class PyGA:
         if self._recombination_method == PyGA.RECOMBINATION_2D_SPATIAL_CROSSOVER:
             # Check whether the spatial crossover parameters have been set
             if self._spatial_crossover_grid_shape is None or self._spatial_crossover_subgrid_shape is None:
-                raise PyGA.GeneticAlgorithmException("The spatial crossover parameters have not been set. Use the `GeneticAlgorithm.spatial_crossover_parameters()` method to set the spatial crossover parameters.")
+                raise PyGA.GeneticAlgorithmException("The spatial crossover parameters have not been set. Use the `PyGA.spatial_crossover_parameters()` method to set the spatial crossover parameters.")
             return Recombination.recombination_2d_spatial_crossover(organism1, organism2, self._spatial_crossover_grid_shape, self._spatial_crossover_subgrid_shape, self._mutation_probability, self._gene_lengths)
         
         raise PyGA.GeneticAlgorithmException("Invalid recombination method.")
@@ -660,96 +700,12 @@ class PyGA:
         - `bool`: `True` if the population has converged, `False` otherwise.
         """
 
-        # Check whether there are enough fitness scores
-        if len(self._highest_fitnesses) < self._convergence_window_size:
+        # Check whether the highest fitnesses list is empty
+        if len(self._highest_fitnesses) < 2:
             return False
-        highest_fitnesses = np.array(self._highest_fitnesses)
         
-        # Normalize the fitness scores
-        normalized_fitnesses = self.__normalize_min_max(highest_fitnesses)
-
-        # Calculate the movering average 
-        moving_average = self.__moving_average(normalized_fitnesses, self._convergence_window_size)
-
-        # Check whether the moving average has converged
-        return np.std(moving_average) < self._convergence_threshold
-    
-
-    def __convergence(self)-> tuple[bool, bool]:
-        """
-        This method checks whether the population has converged or stabilized.
-        
-        ### Returns
-        - `tuple`: A tuple containing two boolean values. The first value indicates whether the population has converged, the second value indicates whether the population has stabilized.
-        """
-
-        # Convert to numpy array
-        fitness_scores = np.array(self._highest_fitnesses)
-
-        # Normalize the fitness scores
-        min_fitness = np.min(fitness_scores)
-        max_fitness = np.max(fitness_scores)
-        if max_fitness == min_fitness:
-            normalized_fitness_scores = fitness_scores
-        else:
-            normalized_fitness_scores = (fitness_scores - min_fitness) / (max_fitness - min_fitness)
-
-        # Calculate the moving average
-        moving_average = np.convolve(
-            normalized_fitness_scores,
-            np.ones(self._convergence_window_size) / self._convergence_window_size,
-            mode='valid'
-        )
-        if len(moving_average) < 2:
-            return False, False
-
-        # Calculate the standard deviation of the moving average
-        standard_deviation = np.std(moving_average)
-
-        # Check whether the fitness scores have stabilized
-        stabilized = standard_deviation < self._convergence_threshold
-
-        # Check whether the scores are converging
-        rate_of_change = np.diff(moving_average)
-        converged = np.max(rate_of_change) < self._convergence_threshold
-        return converged, stabilized
-
-
-        
-
-    def __normalize_min_max(self, fitness_scores: np.ndarray)-> np.ndarray:
-        """
-        This method normalizes a list of fitness scores between 0 and 1.
-
-        ### Parameters
-        - fitness_scores (`np.ndarray`): An array of fitness scores.
-
-        ### Returns
-        - `np.ndarray`: A numpy array of normalized fitness scores.
-        """
-        # Find the minimum and maximum fitness scores
-        min_fitness = np.min(fitness_scores)
-        max_fitness = np.max(fitness_scores)
-
-        # Check whether the minimum is the same as the maximum
-        if max_fitness == min_fitness:
-            return fitness_scores
-        return (fitness_scores - min_fitness) / (max_fitness - min_fitness)
-    
-
-    def __moving_average(self, normalized_fitnesses: np.ndarray, window_size: int)-> np.ndarray:
-        """
-        This method calculates the moving average of a list of normalized fitness scores.
-
-        ### Parameters
-        - normalized_fitnesses (`list`): A list of normalized fitness scores.
-        - window_size (`int`): The window size for the moving average.
-
-        ### Returns
-        - `highest_fitnesses`: A numpy array of the moving average of the normalized fitness scores.
-        """
-        normalized_fitnesses = np.array(normalized_fitnesses)
-        return np.convolve(normalized_fitnesses, np.ones(window_size)/window_size, mode='valid')
+        # Check whether the highest fitnesses have converged
+        return all([self._highest_fitnesses[-1] == fitness for fitness in self._highest_fitnesses[-self._convergence_generation_amount:]]) and self._generation_count > self._convergence_generation_amount
     # +++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
@@ -959,6 +915,37 @@ class PyGA:
         - `list`: The highest fitnesses of the population.
         """
         return self._highest_fitnesses
+    
+
+    @property
+    def dynamic_mutation(self)-> bool:
+        """
+        This property returns whether dynamic mutation is enabled.
+
+        ### Returns
+        - `bool`: `True` if dynamic mutation is enabled, `False` otherwise.
+        """
+        return self._dynamic_mutation
+    
+    @dynamic_mutation.setter
+    def dynamic_mutation(self, value: bool):
+        """
+        This property sets whether dynamic mutation is enabled.
+
+        ### Parameters
+        - value (`bool`): `True` to enable dynamic mutation, `False` otherwise.
+        """
+        self._dynamic_mutation = value
+
+    @property
+    def dynamic_mutation_indices(self)-> list:
+        """
+        This property returns the generation indices where dynamic mutation was initiated.
+
+        ### Returns
+        - `list`: The generation indices where dynamic mutation was initiated.
+        """
+        return self._dynamic_mutation_indices
     # +++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
